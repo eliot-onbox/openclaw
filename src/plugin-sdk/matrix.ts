@@ -121,6 +121,7 @@ export {
   registerSessionBindingAdapter,
   unregisterSessionBindingAdapter,
 } from "../infra/outbound/session-binding-service.js";
+export { resolveOutboundSendDep } from "../infra/outbound/send-deps.js";
 export type {
   BindingTargetKind,
   SessionBindingAdapter,
