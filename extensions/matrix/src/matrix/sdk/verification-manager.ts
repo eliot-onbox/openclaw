@@ -83,6 +83,10 @@ export type MatrixVerificationRequestLike = {
 
 export type MatrixVerificationCryptoApi = {
   requestOwnUserVerification: () => Promise<unknown | null>;
+  findVerificationRequestDMInProgress?: (
+    roomId: string,
+    userId: string,
+  ) => MatrixVerificationRequestLike | undefined;
   requestDeviceVerification?: (
     userId: string,
     deviceId: string,

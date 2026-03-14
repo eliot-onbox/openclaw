@@ -35,6 +35,10 @@ export type MatrixCryptoFacade = {
     createdAt?: string;
   } | null>;
   listVerifications: () => Promise<MatrixVerificationSummary[]>;
+  ensureVerificationDmTracked: (params: {
+    roomId: string;
+    userId: string;
+  }) => Promise<MatrixVerificationSummary | null>;
   requestVerification: (params: {
     ownUser?: boolean;
     userId?: string;
@@ -146,6 +150,17 @@ export function createMatrixCryptoFacade(deps: {
     },
     listVerifications: async () => {
       return deps.verificationManager.listVerifications();
+    },
+    ensureVerificationDmTracked: async ({ roomId, userId }) => {
+      const crypto = deps.client.getCrypto() as MatrixVerificationCryptoApi | undefined;
+      const request =
+        typeof crypto?.findVerificationRequestDMInProgress === "function"
+          ? crypto.findVerificationRequestDMInProgress(roomId, userId)
+          : undefined;
+      if (!request) {
+        return null;
+      }
+      return deps.verificationManager.trackVerificationRequest(request);
     },
     requestVerification: async (params) => {
       const crypto = deps.client.getCrypto() as MatrixVerificationCryptoApi | undefined;

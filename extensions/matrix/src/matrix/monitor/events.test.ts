@@ -40,10 +40,28 @@ function createHarness(params?: {
       emoji?: Array<[string, string]>;
     };
   }>;
+  ensureVerificationDmTracked?: () => Promise<{
+    id: string;
+    transactionId?: string;
+    roomId?: string;
+    otherUserId: string;
+    updatedAt?: string;
+    completed?: boolean;
+    pending?: boolean;
+    phase?: number;
+    phaseName?: string;
+    sas?: {
+      decimal?: [number, number, number];
+      emoji?: Array<[string, string]>;
+    };
+  } | null>;
 }) {
   const listeners = new Map<string, (...args: unknown[]) => void>();
   const onRoomMessage = vi.fn(async () => {});
   const listVerifications = vi.fn(async () => params?.verifications ?? []);
+  const ensureVerificationDmTracked = vi.fn(
+    params?.ensureVerificationDmTracked ?? (async () => null),
+  );
   const sendMessage = vi.fn(async () => "$notice");
   const invalidateRoom = vi.fn();
   const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
@@ -71,6 +89,7 @@ function createHarness(params?: {
       : {
           crypto: {
             listVerifications,
+            ensureVerificationDmTracked,
           },
         }),
   } as unknown as MatrixClient;
@@ -295,6 +314,68 @@ describe("registerMatrixMonitorEvents verification routing", () => {
       );
       expect(bodies.some((body) => body.includes("SAS emoji:"))).toBe(true);
       expect(bodies.some((body) => body.includes("SAS decimal: 6158 1986 3513"))).toBe(true);
+    });
+  });
+
+  it("rehydrates an in-progress DM verification before resolving SAS notices", async () => {
+    const verifications: Array<{
+      id: string;
+      transactionId?: string;
+      roomId?: string;
+      otherUserId: string;
+      updatedAt?: string;
+      completed?: boolean;
+      pending?: boolean;
+      phase?: number;
+      phaseName?: string;
+      sas?: {
+        decimal?: [number, number, number];
+        emoji?: Array<[string, string]>;
+      };
+    }> = [];
+    const { sendMessage, roomEventListener } = createHarness({
+      joinedMembersByRoom: {
+        "!dm:example.org": ["@alice:example.org", "@bot:example.org"],
+      },
+      verifications,
+      ensureVerificationDmTracked: async () => {
+        verifications.splice(0, verifications.length, {
+          id: "verification-rehydrated",
+          transactionId: "$req-hydrated",
+          roomId: "!dm:example.org",
+          otherUserId: "@alice:example.org",
+          updatedAt: new Date("2026-02-25T21:42:54.000Z").toISOString(),
+          phase: 3,
+          phaseName: "started",
+          pending: true,
+          sas: {
+            decimal: [2468, 1357, 9753],
+            emoji: [
+              ["🔔", "Bell"],
+              ["📁", "Folder"],
+              ["🐴", "Horse"],
+            ],
+          },
+        });
+        return verifications[0] ?? null;
+      },
+    });
+
+    roomEventListener("!dm:example.org", {
+      event_id: "$start-hydrated",
+      sender: "@alice:example.org",
+      type: "m.key.verification.start",
+      origin_server_ts: Date.now(),
+      content: {
+        "m.relates_to": { event_id: "$req-hydrated" },
+      },
+    });
+
+    await vi.waitFor(() => {
+      const bodies = (sendMessage.mock.calls as unknown[][]).map((call) =>
+        String((call[1] as { body?: string } | undefined)?.body ?? ""),
+      );
+      expect(bodies.some((body) => body.includes("SAS decimal: 2468 1357 9753"))).toBe(true);
     });
   });
 

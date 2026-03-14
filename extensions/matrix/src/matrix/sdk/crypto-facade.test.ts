@@ -15,6 +15,7 @@ describe("createMatrixCryptoFacade", () => {
       verificationManager: {
         requestOwnUserVerification: vi.fn(),
         listVerifications: vi.fn(async () => []),
+        ensureVerificationDmTracked: vi.fn(async () => null),
         requestVerification: vi.fn(),
         acceptVerification: vi.fn(),
         cancelVerification: vi.fn(),
@@ -50,6 +51,7 @@ describe("createMatrixCryptoFacade", () => {
       verificationManager: {
         requestOwnUserVerification: vi.fn(),
         listVerifications: vi.fn(async () => []),
+        ensureVerificationDmTracked: vi.fn(async () => null),
         requestVerification: vi.fn(),
         acceptVerification: vi.fn(),
         cancelVerification: vi.fn(),
@@ -98,6 +100,7 @@ describe("createMatrixCryptoFacade", () => {
       verificationManager: {
         requestOwnUserVerification: vi.fn(async () => null),
         listVerifications: vi.fn(async () => []),
+        ensureVerificationDmTracked: vi.fn(async () => null),
         requestVerification,
         acceptVerification: vi.fn(),
         cancelVerification: vi.fn(),
@@ -127,5 +130,88 @@ describe("createMatrixCryptoFacade", () => {
     });
     expect(result.id).toBe("verification-1");
     await expect(facade.getRecoveryKey()).resolves.toMatchObject({ keyId: "KEY" });
+  });
+
+  it("rehydrates in-progress DM verification requests from the raw crypto layer", async () => {
+    const request = {
+      transactionId: "txn-dm-in-progress",
+      roomId: "!dm:example.org",
+      otherUserId: "@alice:example.org",
+      initiatedByMe: false,
+      isSelfVerification: false,
+      phase: 3,
+      pending: true,
+      accepting: false,
+      declining: false,
+      methods: ["m.sas.v1"],
+      accept: vi.fn(async () => {}),
+      cancel: vi.fn(async () => {}),
+      startVerification: vi.fn(),
+      scanQRCode: vi.fn(),
+      generateQRCode: vi.fn(),
+      on: vi.fn(),
+      verifier: undefined,
+    };
+    const trackVerificationRequest = vi.fn(() => ({
+      id: "verification-1",
+      transactionId: "txn-dm-in-progress",
+      roomId: "!dm:example.org",
+      otherUserId: "@alice:example.org",
+      isSelfVerification: false,
+      initiatedByMe: false,
+      phase: 3,
+      phaseName: "started",
+      pending: true,
+      methods: ["m.sas.v1"],
+      canAccept: false,
+      hasSas: false,
+      hasReciprocateQr: false,
+      completed: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }));
+    const crypto = {
+      requestOwnUserVerification: vi.fn(async () => null),
+      findVerificationRequestDMInProgress: vi.fn(() => request),
+    };
+    const facade = createMatrixCryptoFacade({
+      client: {
+        getRoom: () => null,
+        getCrypto: () => crypto,
+      },
+      verificationManager: {
+        trackVerificationRequest,
+        requestOwnUserVerification: vi.fn(async () => null),
+        listVerifications: vi.fn(async () => []),
+        ensureVerificationDmTracked: vi.fn(async () => null),
+        requestVerification: vi.fn(),
+        acceptVerification: vi.fn(),
+        cancelVerification: vi.fn(),
+        startVerification: vi.fn(),
+        generateVerificationQr: vi.fn(),
+        scanVerificationQr: vi.fn(),
+        confirmVerificationSas: vi.fn(),
+        mismatchVerificationSas: vi.fn(),
+        confirmVerificationReciprocateQr: vi.fn(),
+        getVerificationSas: vi.fn(),
+      } as unknown as MatrixVerificationManager,
+      recoveryKeyStore: {
+        getRecoveryKeySummary: vi.fn(() => null),
+      } as unknown as MatrixRecoveryKeyStore,
+      getRoomStateEvent: vi.fn(async () => ({})),
+      downloadContent: vi.fn(async () => Buffer.alloc(0)),
+    });
+
+    const summary = await facade.ensureVerificationDmTracked({
+      roomId: "!dm:example.org",
+      userId: "@alice:example.org",
+    });
+
+    expect(crypto.findVerificationRequestDMInProgress).toHaveBeenCalledWith(
+      "!dm:example.org",
+      "@alice:example.org",
+    );
+    expect(trackVerificationRequest).toHaveBeenCalledWith(request);
+    expect(summary?.transactionId).toBe("txn-dm-in-progress");
   });
 });

@@ -194,6 +194,12 @@ async function resolveVerificationSummaryForSignal(
   if (!client.crypto) {
     return null;
   }
+  await client.crypto
+    .ensureVerificationDmTracked({
+      roomId: params.roomId,
+      userId: params.senderId,
+    })
+    .catch(() => null);
   const list = await client.crypto.listVerifications();
   if (list.length === 0) {
     return null;
