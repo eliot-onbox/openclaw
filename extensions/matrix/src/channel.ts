@@ -76,7 +76,11 @@ function resolveAvatarInput(input: ChannelSetupInput): string | undefined {
 
 function resolveMatrixAutoThreadId(params: {
   to: string;
-  toolContext?: { currentThreadTs?: string; currentChannelId?: string; currentDirectUserId?: string };
+  toolContext?: {
+    currentThreadTs?: string;
+    currentChannelId?: string;
+    currentDirectUserId?: string;
+  };
 }): string | undefined {
   const currentThreadId = params.toolContext?.currentThreadTs?.trim();
   if (!currentThreadId) {
@@ -100,6 +104,47 @@ function resolveMatrixAutoThreadId(params: {
     return undefined;
   }
   return target.id.toLowerCase() === currentChannel.id.toLowerCase() ? currentThreadId : undefined;
+}
+
+function normalizeMatrixAcpConversationId(conversationId: string) {
+  const target = resolveMatrixTargetIdentity(conversationId);
+  if (!target || target.kind !== "room") {
+    return null;
+  }
+  return { conversationId: target.id };
+}
+
+function matchMatrixAcpConversation(params: {
+  bindingConversationId: string;
+  conversationId: string;
+  parentConversationId?: string;
+}) {
+  const binding = normalizeMatrixAcpConversationId(params.bindingConversationId);
+  const incoming = normalizeMatrixAcpConversationId(params.conversationId);
+  if (!binding || !incoming) {
+    return null;
+  }
+  if (binding.conversationId === incoming.conversationId) {
+    return {
+      conversationId: incoming.conversationId,
+      matchPriority: 2,
+    };
+  }
+  if (!params.parentConversationId) {
+    return null;
+  }
+  const incomingParent = normalizeMatrixAcpConversationId(params.parentConversationId);
+  if (
+    !incomingParent ||
+    incomingParent.conversationId === incoming.conversationId ||
+    binding.conversationId !== incomingParent.conversationId
+  ) {
+    return null;
+  }
+  return {
+    conversationId: incomingParent.conversationId,
+    matchPriority: 1,
+  };
 }
 
 export const matrixPlugin: ChannelPlugin<ResolvedMatrixAccount> = {
@@ -226,6 +271,16 @@ export const matrixPlugin: ChannelPlugin<ResolvedMatrixAccount> = {
     },
     resolveAutoThreadId: ({ to, toolContext, replyToId }) =>
       replyToId ? undefined : resolveMatrixAutoThreadId({ to, toolContext }),
+  },
+  bindings: {
+    compileConfiguredBinding: ({ conversationId }) =>
+      normalizeMatrixAcpConversationId(conversationId),
+    matchInboundConversation: ({ compiledBinding, conversationId, parentConversationId }) =>
+      matchMatrixAcpConversation({
+        bindingConversationId: compiledBinding.conversationId,
+        conversationId,
+        parentConversationId,
+      }),
   },
   messaging: {
     normalizeTarget: normalizeMatrixMessagingTarget,

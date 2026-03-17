@@ -4,7 +4,10 @@ import {
   __testing as sessionBindingTesting,
   registerSessionBindingAdapter,
 } from "../../../../../src/infra/outbound/session-binding-service.js";
+import { setActivePluginRegistry } from "../../../../../src/plugins/runtime.js";
 import { resolveAgentRoute } from "../../../../../src/routing/resolve-route.js";
+import { createTestRegistry } from "../../../../../src/test-utils/channel-plugins.js";
+import { matrixPlugin } from "../../channel.js";
 import { resolveMatrixInboundRoute } from "./route.js";
 
 const baseCfg = {
@@ -29,6 +32,9 @@ function resolveDmRoute(cfg: OpenClawConfig) {
 describe("resolveMatrixInboundRoute", () => {
   beforeEach(() => {
     sessionBindingTesting.resetSessionBindingAdaptersForTests();
+    setActivePluginRegistry(
+      createTestRegistry([{ pluginId: "matrix", source: "test", plugin: matrixPlugin }]),
+    );
   });
 
   it("prefers sender-bound DM routing over DM room fallback bindings", () => {

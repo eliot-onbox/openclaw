@@ -159,17 +159,18 @@ describe("matrix client storage paths", () => {
       env: {},
     });
     const legacyRoot = path.join(stateDir, "matrix");
+    const env = createMigrationEnv(stateDir);
     fs.mkdirSync(storagePaths.rootDir, { recursive: true });
     fs.writeFileSync(storagePaths.storagePath, '{"new":true}');
     fs.mkdirSync(path.join(legacyRoot, "crypto"), { recursive: true });
 
     await maybeMigrateLegacyStorage({
       storagePaths,
-      env: {},
+      env,
     });
 
-    expect(maybeCreateMatrixMigrationSnapshotMock).toHaveBeenCalledWith(
-      expect.objectContaining({ trigger: "matrix-client-fallback" }),
+    expect(createBackupArchiveMock).toHaveBeenCalledWith(
+      expect.objectContaining({ includeWorkspace: false }),
     );
     expect(fs.readFileSync(storagePaths.storagePath, "utf8")).toBe('{"new":true}');
     expect(fs.existsSync(path.join(legacyRoot, "crypto"))).toBe(false);

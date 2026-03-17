@@ -103,6 +103,9 @@ describe("matrix profile actions", () => {
     await call.loadAvatarFromPath("/tmp/avatar.png", 456);
 
     expect(loadWebMediaMock).toHaveBeenNthCalledWith(1, "https://cdn.example.org/avatar.png", 123);
-    expect(loadWebMediaMock).toHaveBeenNthCalledWith(2, "/tmp/avatar.png", 456);
+    expect(loadWebMediaMock).toHaveBeenNthCalledWith(2, "/tmp/avatar.png", {
+      maxBytes: 456,
+      localRoots: undefined,
+    });
   });
 });
