@@ -69,6 +69,9 @@ describe("channel inbound contract", () => {
   });
 
   it("keeps Discord inbound context finalized", async () => {
+    // The Discord handler path is covered by
+    // extensions/discord/src/monitor/message-handler.inbound-context.test.ts.
+    // This contract suite only asserts the finalized shared MsgContext shape.
     const ctx = finalizeInboundContext({
       Body: "hi",
       BodyForAgent: "hi",

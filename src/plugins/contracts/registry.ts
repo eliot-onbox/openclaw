@@ -99,6 +99,8 @@ export const providerContractRegistry: ProviderContractEntry[] = buildCapability
   select: () => [],
 });
 
+// Keep this loader map aligned with the bundled provider ids discovered from
+// manifest-registry so contract coverage keeps matching the real bundled set.
 const bundledProviderContractPluginLoaders: Record<
   string,
   () => Promise<{ default: RegistrablePlugin }>
