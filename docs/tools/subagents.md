@@ -191,9 +191,9 @@ Each level only sees announces from its direct children.
 ### Tool policy by depth
 
 - Role and control scope are written into session metadata at spawn time. That keeps flat or restored session keys from accidentally regaining orchestrator privileges.
-- **Depth 1 (orchestrator, when `maxSpawnDepth >= 2`)**: Gets `sessions_spawn`, `subagents`, `sessions_list`, `sessions_history` so it can manage its children. Other session/system tools remain denied.
-- **Depth 1 (leaf, when `maxSpawnDepth == 1`)**: No session tools (current default behavior).
-- **Depth 2 (leaf worker)**: No session tools — `sessions_spawn` is always denied at depth 2. Cannot spawn further children.
+- **Depth N (orchestrator, when `maxSpawnDepth > N`)**: Gets `sessions_spawn`, `subagents`, `sessions_list`, `sessions_history` so it can manage its children. `sessions_send` and other session tools remain denied.
+- **Depth N (leaf, when `maxSpawnDepth <= N`)**: No session tools.
+- At the default `maxSpawnDepth: 1`, depth-1 sessions are leaves (current default behavior). At `maxSpawnDepth: 2`, depth-1 sessions become orchestrators while depth-2 sessions are leaves, and so on.
 
 ### Per-agent spawn limit
 
@@ -201,9 +201,9 @@ Each agent session (at any depth) can have at most `maxChildrenPerAgent` (defaul
 
 ### Cascade stop
 
-Stopping a depth-1 orchestrator automatically stops all its depth-2 children:
+Stopping an orchestrator automatically stops all its children (recursively):
 
-- `/stop` in the main chat stops all depth-1 agents and cascades to their depth-2 children.
+- `/stop` in the main chat stops all sub-agents and cascades to their children at every depth.
 - `/subagents kill <id>` stops a specific sub-agent and cascades to its children.
 - `/subagents kill all` stops all sub-agents for the requester and cascades.
 
