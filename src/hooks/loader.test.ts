@@ -121,20 +121,26 @@ describe("loader", () => {
       expect(getRegisteredEventKeys()).not.toContain("command:new");
     };
 
-    it("should return 0 when hooks are disabled or missing", async () => {
-      for (const cfg of [
-        {
-          hooks: {
-            internal: {
-              enabled: false,
-            },
+    it("should return 0 when hooks are explicitly disabled", async () => {
+      const cfg: OpenClawConfig = {
+        hooks: {
+          internal: {
+            enabled: false,
           },
-        } satisfies OpenClawConfig,
-        {} satisfies OpenClawConfig,
-      ]) {
-        const count = await loadInternalHooks(cfg, tmpDir);
-        expect(count).toBe(0);
-      }
+        },
+      };
+      const count = await loadInternalHooks(cfg, tmpDir);
+      expect(count).toBe(0);
+    });
+
+    it("should return 0 when config is empty and no hooks are discoverable", async () => {
+      // An empty config no longer means hooks are disabled — it means
+      // "proceed to discovery".  This test verifies that the loader
+      // returns 0 when there are simply no hooks to find (the bundled
+      // dir env var is pointed at a non-existent path in beforeEach).
+      const cfg: OpenClawConfig = {};
+      const count = await loadInternalHooks(cfg, tmpDir);
+      expect(count).toBe(0);
     });
 
     it("loads bundled hooks when hooks.internal.enabled is undefined (#55929)", async () => {
