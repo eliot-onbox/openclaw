@@ -137,6 +137,30 @@ describe("loader", () => {
       }
     });
 
+    it("loads bundled hooks when hooks.internal.enabled is undefined (#55929)", async () => {
+      // Regression: when enabled is undefined (not explicitly set), bundled hooks
+      // with defaultEnableMode "default-on" should still load.  The old guard
+      // `if (!cfg.hooks?.internal?.enabled)` treated undefined as falsy and
+      // skipped ALL hooks, including bundled ones.
+      const bundledDir = path.join(tmpDir, "bundled-hooks");
+      await writeDiscoveredHook({
+        sourceDir: bundledDir,
+        hookName: "session-memory",
+        handlerCode:
+          'export default async function(event) { event.messages.push("bundled-loaded"); }\n',
+      });
+
+      // No `enabled` field at all — simulates fresh install default
+      const cfg: OpenClawConfig = {};
+
+      const count = await loadInternalHooks(cfg, tmpDir, { bundledHooksDir: bundledDir });
+      expect(count).toBe(1);
+
+      const event = createInternalHookEvent("command", "new", "test-session");
+      await triggerInternalHook(event);
+      expect(event.messages).toContain("bundled-loaded");
+    });
+
     it("should load a handler from a module", async () => {
       // Create a test handler module
       const handlerCode = `
